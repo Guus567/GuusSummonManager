@@ -1,0 +1,15 @@
+## Interface: 11403
+## SavedVariables: GuusSummonManager GuusSummonManager_Config
+## Title: GuusSummonManager
+## Notes: Character summon and warlock management
+## Author: Guus
+## Version: 1.0
+## LoadOnDemand: 0
+## DefaultState: enabled
+
+libs/LibStub.lua
+libs/CallbackHandler-1.0.lua
+libs/LibDataBroker-1.1.lua
+libs/LibDBIcon-1.0.lua
+
+GuusSummonManager.lua
