@@ -4,8 +4,8 @@ GuusSummonManager_Config = GuusSummonManager_Config or {}
 -- Configuration
 local config = {
     Debug = false,
-    WindowWidth = 450,
-    WindowHeight = 570,
+    WindowWidth = 480,
+    WindowHeight = 600,
     ButtonHeight = 30,
     ButtonWidth = 100,
     InputWidth = 200,
@@ -238,7 +238,15 @@ local addWarlockEdit = nil
 local addCharEdit = nil
 local useActionBtn = nil
 local charListLabel = nil
+local level60ListLabel = nil
 local warlockListLabel = nil
+-- Scroll frame variables
+local warlockScrollFrame = nil
+local warlockScrollContent = nil
+local level60ScrollFrame = nil
+local level60ScrollContent = nil
+local charScrollFrame = nil
+local charScrollContent = nil
 local RefreshCharacterList
 local RefreshLevel60List
 local RefreshWarlockList
@@ -306,12 +314,13 @@ local function ExecuteTransporterCommand(command, param)
             GuusSummonManager.useFrame:SetScript("OnUpdate", function()
                 if GuusSummonManager.useFrame and not GuusSummonManager.useFrame.executed then
                     GuusSummonManager.useFrame.frameCount = GuusSummonManager.useFrame.frameCount + 1
-                    -- Wait 10 frames to clear target
-                    if GuusSummonManager.useFrame.frameCount == 10 then
-                        -- Clear target first
+                    
+                    -- Frame 5: Clear target first
+                    if GuusSummonManager.useFrame.frameCount == 5 then
                         ClearTarget()
-                    -- Wait additional 10 frames (total 20) before sending command
-                    elseif GuusSummonManager.useFrame.frameCount >= 20 then
+                    
+                    -- Frame 10: Send portal command to all characters
+                    elseif GuusSummonManager.useFrame.frameCount >= 10 then
                         -- Build list of truncated warlock names to exclude
                         local truncatedWarlockNames = {}
                         if GuusSummonManager_Config and GuusSummonManager_Config.warlockList then
@@ -341,7 +350,8 @@ local function ExecuteTransporterCommand(command, param)
                                 end
                             end
                         end
-        DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00GuusSummonManager:|r Use portal sent to " .. charCount .. " characters")
+                        DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00GuusSummonManager:|r Use portal sent to " .. charCount .. " characters")
+                        ClearTarget()
                         GuusSummonManager.useFrame.executed = true
                         GuusSummonManager.useFrame:SetScript("OnUpdate", nil)
                     end
@@ -602,6 +612,35 @@ local function GetFirstWarlockName()
     if table.getn(GuusSummonManager_Config.warlockList) == 0 then
         return nil
     end
+    
+    -- Find which warlock is in the group
+    for i, warlockName in ipairs(GuusSummonManager_Config.warlockList) do
+        if warlockName and warlockName ~= "" then
+            local truncatedName = string.sub(warlockName, 1, 7)
+            local warlockWithLite = truncatedName .. "-lite"
+            
+            -- Check party members
+            for j = 1, 4 do
+                local memberName = UnitName("party" .. j)
+                if memberName and string.lower(memberName) == string.lower(warlockWithLite) then
+                    DEFAULT_CHAT_FRAME:AddMessage("[GSM] Using warlock in group: " .. memberName)
+                    return warlockName
+                end
+            end
+            
+            -- Check raid members
+            for j = 1, 10 do
+                local memberName = UnitName("raid" .. j)
+                if memberName and string.lower(memberName) == string.lower(warlockWithLite) then
+                    DEFAULT_CHAT_FRAME:AddMessage("[GSM] Using warlock in group: " .. memberName)
+                    return warlockName
+                end
+            end
+        end
+    end
+    
+    -- If no warlock in group, default to first one (fallback)
+    DEFAULT_CHAT_FRAME:AddMessage("|cffff0000GuusSummonManager:|r No warlock in group, using fallback: " .. GuusSummonManager_Config.warlockList[1])
     return GuusSummonManager_Config.warlockList[1]
 end
 
@@ -659,6 +698,24 @@ RefreshCharacterList = function()
         GuusSummonManager_Config.characterList = {}
     end
     
+    local charCount = table.getn(GuusSummonManager_Config.characterList)
+    
+    -- Determine if we should use scrollbar (>4 items)
+    local useScroll = charScrollFrame and charCount > 4
+    
+    -- Show/hide scrollbar based on character count
+    if useScroll then
+        charScrollFrame:Show()
+        charScrollFrame:SetHeight(140)  -- Show 4 rows
+        charScrollContent:SetHeight((charCount * 35) + 10)
+    elseif charScrollFrame then
+        charScrollFrame:Hide()
+        charScrollFrame:SetHeight(0)
+    end
+    
+    -- Determine parent for buttons (scroll content if scrolling, otherwise gui)
+    local parentFrame = useScroll and charScrollContent or gui
+    
     -- Create buttons for each character
     local isFirstChar = true
     local prevCharNameFrame = nil
@@ -675,15 +732,18 @@ RefreshCharacterList = function()
         end
         
         if characterName then
-            -- Character name label (with level info)
-            local nameFrame = CreateFrame("Frame", "GSMCharName" .. i, gui)
+            -- Character name label (with level info) - parent to scroll content or gui
+            local nameFrame = CreateFrame("Frame", "GSMCharName" .. characterName .. i, parentFrame)
             nameFrame:SetWidth(180)
             nameFrame:SetHeight(config.ButtonHeight)
             
-            -- Anchor first character to addCharEdit (the input field), subsequent to previous nameFrame
+            -- Anchor first character based on which parent we're using
             if isFirstChar then
-                -- Position below the input field with 10px spacing (matches Level 60 list)
-                nameFrame:SetPoint("TOPLEFT", addCharEdit, "BOTTOMLEFT", 0, -10)
+                if useScroll then
+                    nameFrame:SetPoint("TOPLEFT", charScrollContent, "TOPLEFT", 0, 0)
+                else
+                    nameFrame:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -440)
+                end
                 isFirstChar = false
             else
                 nameFrame:SetPoint("TOPLEFT", prevCharNameFrame, "BOTTOMLEFT", 0, -5)
@@ -708,7 +768,7 @@ RefreshCharacterList = function()
             table.insert(characterListButtons, nameFrame)
             
             -- Invite button
-            local inviteBtn = CreateFrame("Button", "GSMInviteBtn" .. i, gui)
+            local inviteBtn = CreateFrame("Button", "GSMInviteBtn" .. characterName .. i, parentFrame)
             inviteBtn:SetWidth(50)
             inviteBtn:SetHeight(config.ButtonHeight)
             inviteBtn:SetPoint("TOPLEFT", nameFrame, "TOPRIGHT", 10, 0)
@@ -742,7 +802,7 @@ RefreshCharacterList = function()
             table.insert(characterListButtons, inviteBtn)
             
             -- Uninvite button
-            local uninviteBtn = CreateFrame("Button", "GSMUninviteBtn" .. i, gui)
+            local uninviteBtn = CreateFrame("Button", "GSMUninviteBtn" .. characterName .. i, parentFrame)
             uninviteBtn:SetWidth(55)
             uninviteBtn:SetHeight(config.ButtonHeight)
             uninviteBtn:SetPoint("TOPLEFT", inviteBtn, "TOPRIGHT", 5, 0)
@@ -775,7 +835,7 @@ RefreshCharacterList = function()
             table.insert(characterListButtons, uninviteBtn)
             
             -- Teleport button
-            local teleportBtn = CreateFrame("Button", "GSMTeleportBtn" .. i, gui)
+            local teleportBtn = CreateFrame("Button", "GSMTeleportBtn" .. characterName .. i, parentFrame)
             teleportBtn:SetWidth(55)
             teleportBtn:SetHeight(config.ButtonHeight)
             teleportBtn:SetPoint("TOPLEFT", uninviteBtn, "TOPRIGHT", 5, 0)
@@ -801,21 +861,17 @@ RefreshCharacterList = function()
             teleportText:SetText("Teleport")
             teleportText:SetTextColor(0.5, 0.7, 1.0)
             
-            teleportBtn:SetScript("OnClick", function()
-                local warlockName = GetFirstWarlockName()
-                local charName = charNameClosure
+            teleportBtn:SetScript("OnClick", (function(capturedCharName)
+                return function()
+                    local warlockName = GetFirstWarlockName()
+                    local charName = capturedCharName
                 
                 if not warlockName or warlockName == "" then
                     DEFAULT_CHAT_FRAME:AddMessage("|cffff0000GuusSummonManager:|r No warlocks in list!")
                     return
                 end
                 
-                -- Target the character immediately
-                if SlashCmdList["TARGET"] then
-                    SlashCmdList["TARGET"](charName)
-                end
-                
-                -- Use frame-based delay to send summon command reliably
+                -- Use frame-based delay for both targeting and summoning
                 if GuusSummonManager.teleportFrame then
                     GuusSummonManager.teleportFrame:SetScript("OnUpdate", nil)
                 end
@@ -829,13 +885,24 @@ RefreshCharacterList = function()
                 GuusSummonManager.teleportFrame:SetScript("OnUpdate", function()
                     if GuusSummonManager.teleportFrame and not GuusSummonManager.teleportFrame.executed then
                         GuusSummonManager.teleportFrame.frameCount = GuusSummonManager.teleportFrame.frameCount + 1
-                        -- Wait 10 frames to ensure target is set
-                        if GuusSummonManager.teleportFrame.frameCount >= 10 then
+                        
+                        -- Frame 2-5: Target the character
+                        if GuusSummonManager.teleportFrame.frameCount == 2 then
+                            local cName = GuusSummonManager.teleportFrame.charName
+                            ClearTarget()
+                            if SlashCmdList["TARGET"] then
+                                SlashCmdList["TARGET"](cName)
+                            end
+                        end
+                        
+                        -- Frame 20: Send summoning command after target is set
+                        if GuusSummonManager.teleportFrame.frameCount >= 20 then
                             local wName = GuusSummonManager.teleportFrame.warlockName
                             local cName = GuusSummonManager.teleportFrame.charName
                             if wName and wName ~= "" then
                                 -- Truncate warlock name to 7 chars and add -lite suffix
                                 local truncatedWarlockName = string.sub(wName, 1, 7) .. "-lite"
+                                -- Send summoning command (warlock will see current target)
                                 SendChatMessage("cast Ritual of Summoning", "WHISPER", nil, truncatedWarlockName)
                                 DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00GuusSummonManager:|r Summoning " .. cName .. " via " .. wName)
                             end
@@ -844,12 +911,13 @@ RefreshCharacterList = function()
                         end
                     end
                 end)
-            end)
+                end
+            end)(characterName))
             
             table.insert(characterListButtons, teleportBtn)
             
             -- Remove button
-            local removeBtn = CreateFrame("Button", "GSMRemoveBtn" .. i, gui)
+            local removeBtn = CreateFrame("Button", "GSMRemoveBtn" .. characterName .. i, parentFrame)
             removeBtn:SetWidth(50)
             removeBtn:SetHeight(config.ButtonHeight)
             removeBtn:SetPoint("TOPLEFT", teleportBtn, "TOPRIGHT", 5, 0)
@@ -882,6 +950,11 @@ RefreshCharacterList = function()
             table.insert(characterListButtons, removeBtn)
         end
     end
+    
+    -- Update scroll position if using scroll
+    if useScroll then
+        charScrollFrame:SetVerticalScroll(0)
+    end
 end
 
 -- Function to refresh warlock list display
@@ -901,20 +974,42 @@ RefreshWarlockList = function()
         GuusSummonManager_Config.warlockList = {}
     end
     
+    local warlockCount = table.getn(GuusSummonManager_Config.warlockList)
+    
+    -- Determine if we should use scrollbar (>1 items)
+    local useScroll = warlockScrollFrame and warlockCount > 1
+    
+    -- Show/hide scrollbar based on warlock count
+    if useScroll then
+        warlockScrollFrame:Show()
+        warlockScrollFrame:SetHeight(70)  -- Show 2 rows
+        warlockScrollContent:SetHeight((warlockCount * 35) + 10)
+    elseif warlockScrollFrame then
+        warlockScrollFrame:Hide()
+        warlockScrollFrame:SetHeight(0)
+    end
+    
+    -- Determine parent for buttons (scroll content if scrolling, otherwise gui)
+    local parentFrame = useScroll and warlockScrollContent or gui
+    
     -- Create buttons for each warlock
     local isFirstItem = true
     local prevNameFrame = nil
     local lastNameFrame = nil
     for i, warlockName in ipairs(GuusSummonManager_Config.warlockList) do
         if warlockName then
-            -- Warlock name label
-            local nameFrame = CreateFrame("Frame", "GSMWarlockName" .. i, gui)
+            -- Warlock name label - parent to scroll content or gui
+            local nameFrame = CreateFrame("Frame", "GSMWarlockName" .. i, parentFrame)
             nameFrame:SetWidth(140)
             nameFrame:SetHeight(config.ButtonHeight)
             
-            -- Anchor first item to addWarlockEdit, subsequent items to previous nameFrame
+            -- Anchor first item based on which parent we're using
             if isFirstItem then
-                nameFrame:SetPoint("TOPLEFT", addWarlockEdit, "BOTTOMLEFT", 0, -10)
+                if useScroll then
+                    nameFrame:SetPoint("TOPLEFT", warlockScrollContent, "TOPLEFT", 0, 0)
+                else
+                    nameFrame:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -115)
+                end
                 isFirstItem = false
             else
                 nameFrame:SetPoint("TOPLEFT", prevNameFrame, "BOTTOMLEFT", 0, -5)
@@ -940,7 +1035,7 @@ RefreshWarlockList = function()
             table.insert(warlockListButtons, nameFrame)
             
             -- Spawn button (green)
-            local spawnBtn = CreateFrame("Button", "GSMSpawnWarlockBtn" .. i, gui)
+            local spawnBtn = CreateFrame("Button", "GSMSpawnWarlockBtn" .. i, parentFrame)
             spawnBtn:SetWidth(50)
             spawnBtn:SetHeight(config.ButtonHeight)
             spawnBtn:SetPoint("TOPLEFT", nameFrame, "TOPRIGHT", 5, 0)
@@ -974,7 +1069,7 @@ RefreshWarlockList = function()
             table.insert(warlockListButtons, spawnBtn)
             
             -- Uninvite button (red)
-            local uninviteBtn = CreateFrame("Button", "GSMUninviteWarlockBtn" .. i, gui)
+            local uninviteBtn = CreateFrame("Button", "GSMUninviteWarlockBtn" .. i, parentFrame)
             uninviteBtn:SetWidth(55)
             uninviteBtn:SetHeight(config.ButtonHeight)
             uninviteBtn:SetPoint("TOPLEFT", spawnBtn, "TOPRIGHT", 5, 0)
@@ -1007,7 +1102,7 @@ RefreshWarlockList = function()
             table.insert(warlockListButtons, uninviteBtn)
             
             -- Remove button (remove from list)
-            local removeBtn = CreateFrame("Button", "GSMRemoveWarlockBtn" .. i, gui)
+            local removeBtn = CreateFrame("Button", "GSMRemoveWarlockBtn" .. i, parentFrame)
             removeBtn:SetWidth(50)
             removeBtn:SetHeight(config.ButtonHeight)
             removeBtn:SetPoint("TOPLEFT", uninviteBtn, "TOPRIGHT", 5, 0)
@@ -1041,15 +1136,9 @@ RefreshWarlockList = function()
         end
     end
     
-    -- Reposition warlock list label based on whether there are warlocks
-    if warlockListLabel then
-        if lastNameFrame then
-            -- Position below the last warlock's name frame
-            warlockListLabel:SetPoint("TOPLEFT", lastNameFrame, "BOTTOMLEFT", 0, -10)
-        else
-            -- Position below the addWarlockEdit if no warlocks
-            warlockListLabel:SetPoint("TOPLEFT", addWarlockEdit, "BOTTOMLEFT", 0, -10)
-        end
+    -- Update scroll position if using scroll
+    if useScroll then
+        warlockScrollFrame:SetVerticalScroll(0)
     end
 end
 
@@ -1070,20 +1159,42 @@ RefreshLevel60List = function()
         GuusSummonManager_Config.level60List = {}
     end
     
+    local level60Count = table.getn(GuusSummonManager_Config.level60List)
+    
+    -- Determine if we should use scrollbar (>2 items)
+    local useScroll = level60ScrollFrame and level60Count > 2
+    
+    -- Show/hide scrollbar based on level 60 count
+    if useScroll then
+        level60ScrollFrame:Show()
+        level60ScrollFrame:SetHeight(70)  -- Show 2 rows
+        level60ScrollContent:SetHeight((level60Count * 35) + 10)
+    elseif level60ScrollFrame then
+        level60ScrollFrame:Hide()
+        level60ScrollFrame:SetHeight(0)
+    end
+    
+    -- Determine parent for buttons (scroll content if scrolling, otherwise gui)
+    local parentFrame = useScroll and level60ScrollContent or gui
+    
     -- Create buttons for each level 60 character
     local isFirstItem = true
     local prevNameFrame = nil
     local lastNameFrame = nil
     for i, characterName in ipairs(GuusSummonManager_Config.level60List) do
         if characterName then
-            -- Character name label
-            local nameFrame = CreateFrame("Frame", "GSMLevel60Name" .. i, gui)
+            -- Character name label - parent to scroll content or gui
+            local nameFrame = CreateFrame("Frame", "GSMLevel60Name" .. i, parentFrame)
             nameFrame:SetWidth(140)
             nameFrame:SetHeight(config.ButtonHeight)
             
-            -- Anchor first item to addL60Edit, subsequent items to previous nameFrame
+            -- Anchor first item based on which parent we're using
             if isFirstItem then
-                nameFrame:SetPoint("TOPLEFT", addL60Edit, "BOTTOMLEFT", 0, -10)
+                if useScroll then
+                    nameFrame:SetPoint("TOPLEFT", level60ScrollContent, "TOPLEFT", 0, 0)
+                else
+                    nameFrame:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -265)
+                end
                 isFirstItem = false
             else
                 nameFrame:SetPoint("TOPLEFT", prevNameFrame, "BOTTOMLEFT", 0, -5)
@@ -1109,7 +1220,7 @@ RefreshLevel60List = function()
             table.insert(level60ListButtons, nameFrame)
             
             -- Spawn button (green)
-            local spawnBtn = CreateFrame("Button", "GSMSpawnL60Btn" .. i, gui)
+            local spawnBtn = CreateFrame("Button", "GSMSpawnL60Btn" .. i, parentFrame)
             spawnBtn:SetWidth(50)
             spawnBtn:SetHeight(config.ButtonHeight)
             spawnBtn:SetPoint("TOPLEFT", nameFrame, "TOPRIGHT", 5, 0)
@@ -1143,7 +1254,7 @@ RefreshLevel60List = function()
             table.insert(level60ListButtons, spawnBtn)
             
             -- Uninvite button (red) - works with -lite suffix
-            local uninviteBtn = CreateFrame("Button", "GSMUninviteL60Btn" .. i, gui)
+            local uninviteBtn = CreateFrame("Button", "GSMUninviteL60Btn" .. i, parentFrame)
             uninviteBtn:SetWidth(55)
             uninviteBtn:SetHeight(config.ButtonHeight)
             uninviteBtn:SetPoint("TOPLEFT", spawnBtn, "TOPRIGHT", 5, 0)
@@ -1176,7 +1287,7 @@ RefreshLevel60List = function()
             table.insert(level60ListButtons, uninviteBtn)
             
             -- Remove button (remove from list)
-            local removeBtn = CreateFrame("Button", "GSMRemoveL60Btn" .. i, gui)
+            local removeBtn = CreateFrame("Button", "GSMRemoveL60Btn" .. i, parentFrame)
             removeBtn:SetWidth(50)
             removeBtn:SetHeight(config.ButtonHeight)
             removeBtn:SetPoint("TOPLEFT", uninviteBtn, "TOPRIGHT", 5, 0)
@@ -1210,15 +1321,9 @@ RefreshLevel60List = function()
         end
     end
     
-    -- Reposition Use Portal button based on whether there are level 60 characters
-    if useActionBtn then
-        if lastNameFrame then
-            -- Position below the last level 60 character's name frame (not the remove button)
-            useActionBtn:SetPoint("TOPLEFT", lastNameFrame, "BOTTOMLEFT", 0, -10)
-        else
-            -- Position below the addL60Edit if no characters
-            useActionBtn:SetPoint("TOPLEFT", addL60Edit, "BOTTOMLEFT", 0, -10)
-        end
+    -- Update scroll position
+    if useScroll then
+        level60ScrollFrame:SetVerticalScroll(0)
     end
 end
 
@@ -1283,18 +1388,18 @@ local function CreateGUI()
     
     -- ===== WARLOCK SECTION =====
     local warlockTopLabel = gui:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    warlockTopLabel:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -45)
+    warlockTopLabel:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -40)
     warlockTopLabel:SetText("Warlocks:")
     
     -- Add warlock input
     local addWarlockLabel = gui:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    addWarlockLabel:SetPoint("TOPLEFT", warlockTopLabel, "BOTTOMLEFT", 0, -10)
+    addWarlockLabel:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -60)
     addWarlockLabel:SetText("Add warlock:")
     
     addWarlockEdit = CreateFrame("EditBox", "GSMAddWarlockEdit", gui, "InputBoxTemplate")
     addWarlockEdit:SetWidth(150)
     addWarlockEdit:SetHeight(24)
-    addWarlockEdit:SetPoint("TOPLEFT", addWarlockLabel, "BOTTOMLEFT", 0, -5)
+    addWarlockEdit:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -80)
     addWarlockEdit:SetAutoFocus(false)
     
     -- Add warlock button
@@ -1310,25 +1415,41 @@ local function CreateGUI()
         end
     end)
     
-    -- Warlock list label (repositioned by RefreshWarlockList)
-    warlockListLabel = gui:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    warlockListLabel:SetPoint("TOPLEFT", addWarlockEdit, "BOTTOMLEFT", 0, -10)
-    warlockListLabel:SetText("")
+    -- Create warlock scroll frame (compact - 1 button visible, shown when >1 warlock)
+    warlockScrollFrame = CreateFrame("ScrollFrame", "GSMWarlockScrollFrame", gui, "UIPanelScrollFrameTemplate")
+    warlockScrollFrame:SetWidth(420)
+    warlockScrollFrame:SetHeight(30)
+    warlockScrollFrame:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -115)
+    warlockScrollFrame:EnableMouseWheel(true)
+    warlockScrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        if self then
+            local current = self:GetVerticalScroll()
+            self:SetVerticalScroll(math.max(0, current - delta * 35))
+        end
+        return true  -- Consume the event
+    end)
+    warlockScrollFrame:Hide()
+    
+    warlockScrollContent = CreateFrame("Frame", "GSMWarlockScrollContent", warlockScrollFrame)
+    warlockScrollContent:SetWidth(420)
+    warlockScrollContent:SetHeight(1000)
+    warlockScrollFrame:SetScrollChild(warlockScrollContent)
     
     -- ===== LEVEL 60 CHARACTER LIST SECTION =====
-    local level60ListLabel = gui:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    level60ListLabel:SetPoint("TOPLEFT", warlockListLabel, "BOTTOMLEFT", 0, -10)
+    -- Fixed at y=-190 (below warlock scroll frame). Warlock scroll extends to -185, so 5px gap
+    level60ListLabel = gui:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    level60ListLabel:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -190)
     level60ListLabel:SetText("Level 60 List:")
     
     -- Add level 60 character input
     local addL60Label = gui:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    addL60Label:SetPoint("TOPLEFT", level60ListLabel, "BOTTOMLEFT", 0, -10)
+    addL60Label:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -210)
     addL60Label:SetText("Add level 60:")
     
     addL60Edit = CreateFrame("EditBox", "GSMAddL60Edit", gui, "InputBoxTemplate")
     addL60Edit:SetWidth(150)
     addL60Edit:SetHeight(24)
-    addL60Edit:SetPoint("TOPLEFT", addL60Label, "BOTTOMLEFT", 0, -5)
+    addL60Edit:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -230)
     addL60Edit:SetAutoFocus(false)
     
     -- Add level 60 button
@@ -1344,11 +1465,31 @@ local function CreateGUI()
         end
     end)
     
-    -- Use action button
+    -- Create level 60 scroll frame (compact - 2 buttons visible, shown when >2 level60)
+    level60ScrollFrame = CreateFrame("ScrollFrame", "GSMLevel60ScrollFrame", gui, "UIPanelScrollFrameTemplate")
+    level60ScrollFrame:SetWidth(420)
+    level60ScrollFrame:SetHeight(70)
+    level60ScrollFrame:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -265)
+    level60ScrollFrame:EnableMouseWheel(true)
+    level60ScrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        if self then
+            local current = self:GetVerticalScroll()
+            self:SetVerticalScroll(math.max(0, current - delta * 35))
+        end
+        return true  -- Consume the event
+    end)
+    level60ScrollFrame:Hide()
+    
+    level60ScrollContent = CreateFrame("Frame", "GSMLevel60ScrollContent", level60ScrollFrame)
+    level60ScrollContent:SetWidth(420)
+    level60ScrollContent:SetHeight(1000)
+    level60ScrollFrame:SetScrollChild(level60ScrollContent)
+    
+    -- Use action button (fixed position below level60 scroll frame)
     useActionBtn = CreateFrame("Button", "GSMUseActionBtn", gui, "UIPanelButtonTemplate")
     useActionBtn:SetWidth(100)
     useActionBtn:SetHeight(24)
-    useActionBtn:SetPoint("TOPLEFT", addL60Edit, "BOTTOMLEFT", 0, -10)
+    useActionBtn:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -340)
     useActionBtn:SetText("Use Portal")
     useActionBtn:SetScript("OnClick", function()
         ExecuteTransporterCommand("use")
@@ -1356,18 +1497,18 @@ local function CreateGUI()
     
     -- ===== CHARACTER LIST SECTION =====
     charListLabel = gui:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-    charListLabel:SetPoint("TOPLEFT", useActionBtn, "BOTTOMLEFT", 0, -10)
+    charListLabel:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -365)
     charListLabel:SetText("Characters to Summon:")
     
     -- Add character input
     local addCharLabel = gui:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    addCharLabel:SetPoint("TOPLEFT", charListLabel, "BOTTOMLEFT", 0, -10)
+    addCharLabel:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -385)
     addCharLabel:SetText("Add character:")
     
     addCharEdit = CreateFrame("EditBox", "GSMAddCharEdit", gui, "InputBoxTemplate")
     addCharEdit:SetWidth(150)
     addCharEdit:SetHeight(24)
-    addCharEdit:SetPoint("TOPLEFT", addCharLabel, "BOTTOMLEFT", 0, -5)
+    addCharEdit:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -405)
     addCharEdit:SetAutoFocus(false)
     
     -- Add character button
@@ -1382,6 +1523,26 @@ local function CreateGUI()
             addCharEdit:SetText("")
         end
     end)
+    
+    -- Create character scroll frame (compact - 4 buttons visible, shown when >4 chars)
+    charScrollFrame = CreateFrame("ScrollFrame", "GSMCharScrollFrame", gui, "UIPanelScrollFrameTemplate")
+    charScrollFrame:SetWidth(420)
+    charScrollFrame:SetHeight(140)
+    charScrollFrame:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -440)
+    charScrollFrame:EnableMouseWheel(true)
+    charScrollFrame:SetScript("OnMouseWheel", function(self, delta)
+        if self then
+            local current = self:GetVerticalScroll()
+            self:SetVerticalScroll(math.max(0, current - delta * 35))
+        end
+        return true  -- Consume the event
+    end)
+    charScrollFrame:Hide()
+    
+    charScrollContent = CreateFrame("Frame", "GSMCharScrollContent", charScrollFrame)
+    charScrollContent:SetWidth(420)
+    charScrollContent:SetHeight(1000)
+    charScrollFrame:SetScrollChild(charScrollContent)
     
     -- NOW refresh all lists in correct order after all elements are created
     RefreshWarlockList()
