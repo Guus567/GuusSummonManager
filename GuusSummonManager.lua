@@ -1357,7 +1357,7 @@ local function CreateGUI()
     -- ===== CHARACTER LIST SECTION =====
     charListLabel = gui:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
     charListLabel:SetPoint("TOPLEFT", useActionBtn, "BOTTOMLEFT", 0, -10)
-    charListLabel:SetText("Characters to Invite:")
+    charListLabel:SetText("Characters to Summon:")
     
     -- Add character input
     local addCharLabel = gui:CreateFontString(nil, "OVERLAY", "GameFontNormal")
