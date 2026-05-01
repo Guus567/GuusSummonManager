@@ -1410,6 +1410,9 @@ local function CreateGUI()
     addWarlockBtn:SetText("Add")
     addWarlockBtn:SetScript("OnClick", function()
         local warlockName = addWarlockEdit:GetText()
+        if warlockName == "" then
+            warlockName = UnitName("target") or ""
+        end
         if AddWarlockToList(warlockName) then
             addWarlockEdit:SetText("")
         end
@@ -1460,6 +1463,9 @@ local function CreateGUI()
     addL60Btn:SetText("Add")
     addL60Btn:SetScript("OnClick", function()
         local charName = addL60Edit:GetText()
+        if charName == "" then
+            charName = UnitName("target") or ""
+        end
         if AddLevel60ToList(charName) then
             addL60Edit:SetText("")
         end
@@ -1519,6 +1525,9 @@ local function CreateGUI()
     addCharBtn:SetText("Add")
     addCharBtn:SetScript("OnClick", function()
         local charName = addCharEdit:GetText()
+        if charName == "" then
+            charName = UnitName("target") or ""
+        end
         if AddCharacterToList(charName) then
             addCharEdit:SetText("")
         end
