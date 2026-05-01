@@ -250,6 +250,9 @@ local charScrollContent = nil
 local RefreshCharacterList
 local RefreshLevel60List
 local RefreshWarlockList
+local charListMaxScroll = 0
+local level60ListMaxScroll = 0
+local warlockListMaxScroll = 0
 
 -- Function to execute transporter commands
 local function ExecuteTransporterCommand(command, param)
@@ -707,7 +710,13 @@ RefreshCharacterList = function()
     if useScroll then
         charScrollFrame:Show()
         charScrollFrame:SetHeight(140)  -- Show 4 rows
-        charScrollContent:SetHeight((charCount * 35) + 10)
+        charScrollContent:SetHeight((charCount * 35) + 100)
+        charListMaxScroll = math.max(0, (charCount * 35) + 100 - 140)
+        local charScrollBar = getglobal("GSMCharScrollFrameScrollBar")
+        if charScrollBar then
+            charScrollBar:SetMinMaxValues(0, charListMaxScroll)
+            charScrollBar:SetValue(0)
+        end
     elseif charScrollFrame then
         charScrollFrame:Hide()
         charScrollFrame:SetHeight(0)
@@ -983,7 +992,13 @@ RefreshWarlockList = function()
     if useScroll then
         warlockScrollFrame:Show()
         warlockScrollFrame:SetHeight(70)  -- Show 2 rows
-        warlockScrollContent:SetHeight((warlockCount * 35) + 10)
+        warlockScrollContent:SetHeight((warlockCount * 35) + 100)
+        warlockListMaxScroll = math.max(0, (warlockCount * 35) + 100 - 70)
+        local warlockScrollBar = getglobal("GSMWarlockScrollFrameScrollBar")
+        if warlockScrollBar then
+            warlockScrollBar:SetMinMaxValues(0, warlockListMaxScroll)
+            warlockScrollBar:SetValue(0)
+        end
     elseif warlockScrollFrame then
         warlockScrollFrame:Hide()
         warlockScrollFrame:SetHeight(0)
@@ -1168,7 +1183,13 @@ RefreshLevel60List = function()
     if useScroll then
         level60ScrollFrame:Show()
         level60ScrollFrame:SetHeight(70)  -- Show 2 rows
-        level60ScrollContent:SetHeight((level60Count * 35) + 10)
+        level60ScrollContent:SetHeight((level60Count * 35) + 100)
+        level60ListMaxScroll = math.max(0, (level60Count * 35) + 100 - 70)
+        local level60ScrollBar = getglobal("GSMLevel60ScrollFrameScrollBar")
+        if level60ScrollBar then
+            level60ScrollBar:SetMinMaxValues(0, level60ListMaxScroll)
+            level60ScrollBar:SetValue(0)
+        end
     elseif level60ScrollFrame then
         level60ScrollFrame:Hide()
         level60ScrollFrame:SetHeight(0)
@@ -1427,7 +1448,8 @@ local function CreateGUI()
     warlockScrollFrame:SetScript("OnMouseWheel", function(self, delta)
         if self then
             local current = self:GetVerticalScroll()
-            self:SetVerticalScroll(math.max(0, current - delta * 35))
+            local maxScroll = warlockListMaxScroll
+            self:SetVerticalScroll(math.min(maxScroll, math.max(0, current - delta * 35)))
         end
         return true  -- Consume the event
     end)
@@ -1480,7 +1502,8 @@ local function CreateGUI()
     level60ScrollFrame:SetScript("OnMouseWheel", function(self, delta)
         if self then
             local current = self:GetVerticalScroll()
-            self:SetVerticalScroll(math.max(0, current - delta * 35))
+            local maxScroll = level60ListMaxScroll
+            self:SetVerticalScroll(math.min(maxScroll, math.max(0, current - delta * 35)))
         end
         return true  -- Consume the event
     end)
@@ -1542,7 +1565,8 @@ local function CreateGUI()
     charScrollFrame:SetScript("OnMouseWheel", function(self, delta)
         if self then
             local current = self:GetVerticalScroll()
-            self:SetVerticalScroll(math.max(0, current - delta * 35))
+            local maxScroll = charListMaxScroll
+            self:SetVerticalScroll(math.min(maxScroll, math.max(0, current - delta * 35)))
         end
         return true  -- Consume the event
     end)
