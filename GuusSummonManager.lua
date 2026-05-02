@@ -996,8 +996,8 @@ RefreshWarlockList = function()
     
     local warlockCount = table.getn(GuusSummonManager_Config.warlockList)
     
-    -- Determine if we should use scrollbar (>1 items)
-    local useScroll = warlockScrollFrame and warlockCount > 1
+    -- Determine if we should use scrollbar (>2 items)
+    local useScroll = warlockScrollFrame and warlockCount > 2
     
     -- Show/hide scrollbar based on warlock count
     if useScroll then
@@ -1423,6 +1423,8 @@ local function CreateGUI()
         gui:StopMovingOrSizing()
         -- Position persistence disabled - always center instead
     end)
+    gui:EnableMouseWheel(true)
+    gui:SetScript("OnMouseWheel", function() end)
     
     -- ===== WARLOCK SECTION =====
     local warlockTopLabel = gui:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -1462,13 +1464,17 @@ local function CreateGUI()
     warlockScrollFrame:SetHeight(30)
     warlockScrollFrame:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -115)
     warlockScrollFrame:EnableMouseWheel(true)
-    warlockScrollFrame:SetScript("OnMouseWheel", function(self, delta)
-        if self then
-            local current = self:GetVerticalScroll()
-            local maxScroll = warlockListMaxScroll
-            self:SetVerticalScroll(math.min(maxScroll, math.max(0, current - delta * 35)))
+    warlockScrollFrame:SetScript("OnMouseWheel", function()
+        local delta = arg1
+        if not delta then return end
+        local scrollBar = getglobal("GSMWarlockScrollFrameScrollBar")
+        if scrollBar then
+            local minVal, maxVal = scrollBar:GetMinMaxValues()
+            local curVal = scrollBar:GetValue()
+            if minVal and maxVal and curVal then
+                scrollBar:SetValue(math.min(maxVal, math.max(minVal, curVal - delta * 35)))
+            end
         end
-        return true  -- Consume the event
     end)
     warlockScrollFrame:Hide()
     
@@ -1516,13 +1522,17 @@ local function CreateGUI()
     level60ScrollFrame:SetHeight(70)
     level60ScrollFrame:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -265)
     level60ScrollFrame:EnableMouseWheel(true)
-    level60ScrollFrame:SetScript("OnMouseWheel", function(self, delta)
-        if self then
-            local current = self:GetVerticalScroll()
-            local maxScroll = level60ListMaxScroll
-            self:SetVerticalScroll(math.min(maxScroll, math.max(0, current - delta * 35)))
+    level60ScrollFrame:SetScript("OnMouseWheel", function()
+        local delta = arg1
+        if not delta then return end
+        local scrollBar = getglobal("GSMLevel60ScrollFrameScrollBar")
+        if scrollBar then
+            local minVal, maxVal = scrollBar:GetMinMaxValues()
+            local curVal = scrollBar:GetValue()
+            if minVal and maxVal and curVal then
+                scrollBar:SetValue(math.min(maxVal, math.max(minVal, curVal - delta * 35)))
+            end
         end
-        return true  -- Consume the event
     end)
     level60ScrollFrame:Hide()
     
@@ -1597,13 +1607,17 @@ local function CreateGUI()
     charScrollFrame:SetHeight(140)
     charScrollFrame:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -440)
     charScrollFrame:EnableMouseWheel(true)
-    charScrollFrame:SetScript("OnMouseWheel", function(self, delta)
-        if self then
-            local current = self:GetVerticalScroll()
-            local maxScroll = charListMaxScroll
-            self:SetVerticalScroll(math.min(maxScroll, math.max(0, current - delta * 35)))
+    charScrollFrame:SetScript("OnMouseWheel", function()
+        local delta = arg1
+        if not delta then return end
+        local scrollBar = getglobal("GSMCharScrollFrameScrollBar")
+        if scrollBar then
+            local minVal, maxVal = scrollBar:GetMinMaxValues()
+            local curVal = scrollBar:GetValue()
+            if minVal and maxVal and curVal then
+                scrollBar:SetValue(math.min(maxVal, math.max(minVal, curVal - delta * 35)))
+            end
         end
-        return true  -- Consume the event
     end)
     charScrollFrame:Hide()
     
