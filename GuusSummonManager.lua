@@ -304,64 +304,63 @@ local function ExecuteTransporterCommand(command, param)
         
         DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00GuusSummonManager:|r Removing: " .. param)
     elseif command == "use" then
-        if GuusSummonManager_Config.characterList and table.getn(GuusSummonManager_Config.characterList) > 0 then
+        local numParty = GetNumPartyMembers()
+        local numRaid = GetNumRaidMembers()
+        if numParty == 0 and numRaid == 0 then
+            DEFAULT_CHAT_FRAME:AddMessage("|cffff0000GuusSummonManager:|r Not in a party or raid!")
+        else
             -- Use frame-based delay to ensure reliable execution
             if GuusSummonManager.useFrame then
                 GuusSummonManager.useFrame:SetScript("OnUpdate", nil)
             end
-            
+
             GuusSummonManager.useFrame = CreateFrame("Frame")
             GuusSummonManager.useFrame.frameCount = 0
             GuusSummonManager.useFrame.executed = false
-            
+
             GuusSummonManager.useFrame:SetScript("OnUpdate", function()
                 if GuusSummonManager.useFrame and not GuusSummonManager.useFrame.executed then
                     GuusSummonManager.useFrame.frameCount = GuusSummonManager.useFrame.frameCount + 1
-                    
+
                     -- Frame 5: Clear target first
                     if GuusSummonManager.useFrame.frameCount == 5 then
                         ClearTarget()
-                    
-                    -- Frame 10: Send portal command to all characters
+
+                    -- Frame 10: Send portal command to -lite members in group
                     elseif GuusSummonManager.useFrame.frameCount >= 10 then
-                        -- Build list of truncated warlock names to exclude
-                        local truncatedWarlockNames = {}
-                        if GuusSummonManager_Config and GuusSummonManager_Config.warlockList then
-                            for i, warlockName in ipairs(GuusSummonManager_Config.warlockList) do
-                                if warlockName and warlockName ~= "" then
-                                    truncatedWarlockNames[string.sub(warlockName, 1, 7) .. "-lite"] = true
+                        local liteCount = 0
+                        local currentNumRaid = GetNumRaidMembers()
+                        local currentNumParty = GetNumPartyMembers()
+
+                        if currentNumRaid > 0 then
+                            for j = 1, currentNumRaid do
+                                local memberName = UnitName("raid" .. j)
+                                if memberName and string.sub(memberName, -5) == "-lite" then
+                                    liteCount = liteCount + 1
+                                end
+                            end
+                        else
+                            for j = 1, currentNumParty do
+                                local memberName = UnitName("party" .. j)
+                                if memberName and string.sub(memberName, -5) == "-lite" then
+                                    liteCount = liteCount + 1
                                 end
                             end
                         end
-                        
-                        local charCount = 0
-                        if GuusSummonManager_Config and GuusSummonManager_Config.characterList and type(GuusSummonManager_Config.characterList) == "table" then
-                            for i, charEntry in ipairs(GuusSummonManager_Config.characterList) do
-                                local charName
-                                if type(charEntry) == "string" then
-                                    charName = charEntry
-                                elseif type(charEntry) == "table" then
-                                    charName = charEntry.name
-                                end
-                                
-                                if charName then
-                                    local truncatedCharName = string.sub(charName, 1, 7) .. "-lite"
-                                    if not truncatedWarlockNames[truncatedCharName] then
-                                        SendChatMessage(".z use", "SAY")
-                                        charCount = charCount + 1
-                                    end
-                                end
-                            end
+
+                        if liteCount > 0 then
+                            SendChatMessage(".z use", "SAY")
+                            DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00GuusSummonManager:|r Use portal sent (" .. liteCount .. " -lite members in group)")
+                        else
+                            DEFAULT_CHAT_FRAME:AddMessage("|cffff0000GuusSummonManager:|r No -lite members in group!")
                         end
-                        DEFAULT_CHAT_FRAME:AddMessage("|cff00ff00GuusSummonManager:|r Use portal sent to " .. charCount .. " characters")
+
                         ClearTarget()
                         GuusSummonManager.useFrame.executed = true
                         GuusSummonManager.useFrame:SetScript("OnUpdate", nil)
                     end
                 end
             end)
-        else
-            DEFAULT_CHAT_FRAME:AddMessage("|cffff0000GuusSummonManager:|r No characters in list!")
         end
     elseif command == "invite" and param and param ~= "" then
         -- Execute the /inv command directly
