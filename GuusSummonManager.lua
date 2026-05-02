@@ -688,7 +688,13 @@ RefreshCharacterList = function()
     if not gui or not gui:IsVisible() then
         return
     end
-    
+
+    -- Save current scroll position before refresh
+    local savedScroll = 0
+    if charScrollFrame and charScrollFrame:IsShown() then
+        savedScroll = charScrollFrame:GetVerticalScroll()
+    end
+
     -- Clear existing buttons
     for i, button in ipairs(characterListButtons) do
         button:Hide()
@@ -959,9 +965,9 @@ RefreshCharacterList = function()
         end
     end
     
-    -- Update scroll position if using scroll
+    -- Restore scroll position (or clamp to new max)
     if useScroll then
-        charScrollFrame:SetVerticalScroll(0)
+        charScrollFrame:SetVerticalScroll(math.min(savedScroll, charListMaxScroll))
     end
 end
 
@@ -969,6 +975,12 @@ end
 RefreshWarlockList = function()
     if not gui or not gui:IsVisible() then
         return
+    end
+
+    -- Save current scroll position before refresh
+    local savedScroll = 0
+    if warlockScrollFrame and warlockScrollFrame:IsShown() then
+        savedScroll = warlockScrollFrame:GetVerticalScroll()
     end
     
     -- Clear existing buttons
@@ -1150,9 +1162,9 @@ RefreshWarlockList = function()
         end
     end
     
-    -- Update scroll position if using scroll
+    -- Restore scroll position (or clamp to new max)
     if useScroll then
-        warlockScrollFrame:SetVerticalScroll(0)
+        warlockScrollFrame:SetVerticalScroll(math.min(savedScroll, warlockListMaxScroll))
     end
 end
 
@@ -1160,6 +1172,12 @@ end
 RefreshLevel60List = function()
     if not gui or not gui:IsVisible() then
         return
+    end
+
+    -- Save current scroll position before refresh
+    local savedScroll = 0
+    if level60ScrollFrame and level60ScrollFrame:IsShown() then
+        savedScroll = level60ScrollFrame:GetVerticalScroll()
     end
     
     -- Clear existing buttons
@@ -1341,9 +1359,9 @@ RefreshLevel60List = function()
         end
     end
     
-    -- Update scroll position
+    -- Restore scroll position (or clamp to new max)
     if useScroll then
-        level60ScrollFrame:SetVerticalScroll(0)
+        level60ScrollFrame:SetVerticalScroll(math.min(savedScroll, level60ListMaxScroll))
     end
 end
 
