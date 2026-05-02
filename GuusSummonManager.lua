@@ -1513,12 +1513,30 @@ local function CreateGUI()
     level60ScrollContent:SetHeight(1000)
     level60ScrollFrame:SetScrollChild(level60ScrollContent)
     
-    -- Use action button (fixed position below level60 scroll frame)
-    useActionBtn = CreateFrame("Button", "GSMUseActionBtn", gui, "UIPanelButtonTemplate")
-    useActionBtn:SetWidth(100)
-    useActionBtn:SetHeight(24)
-    useActionBtn:SetPoint("TOPLEFT", gui, "TOPLEFT", 15, -340)
-    useActionBtn:SetText("Use Portal")
+    -- Use Portal button (large, next to level 60 list)
+    useActionBtn = CreateFrame("Button", "GSMUseActionBtn", gui)
+    useActionBtn:SetWidth(160)
+    useActionBtn:SetHeight(60)
+    useActionBtn:SetPoint("TOPLEFT", gui, "TOPLEFT", 270, -190)
+    useActionBtn:SetBackdrop({
+        bgFile = "Interface\\Tooltips\\UI-Tooltip-Background",
+        edgeFile = "Interface\\Tooltips\\UI-Tooltip-Border",
+        tile = true, tileSize = 16, edgeSize = 16,
+        insets = { left = 4, right = 4, top = 4, bottom = 4 }
+    })
+    useActionBtn:SetBackdropColor(0.35, 0.28, 0.0, 0.95)
+    useActionBtn:SetBackdropBorderColor(1.0, 0.82, 0.0, 1.0)
+
+    local usePortalText = useActionBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+    usePortalText:SetPoint("CENTER", useActionBtn, "CENTER", 0, 8)
+    usePortalText:SetText("Use Portal")
+    usePortalText:SetTextColor(1.0, 0.9, 0.1)
+
+    local usePortalSubText = useActionBtn:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+    usePortalSubText:SetPoint("CENTER", useActionBtn, "CENTER", 0, -10)
+    usePortalSubText:SetText("(.z use to all lites)")
+    usePortalSubText:SetTextColor(1.0, 0.75, 0.1)
+
     useActionBtn:SetScript("OnClick", function()
         ExecuteTransporterCommand("use")
     end)
